@@ -5,6 +5,10 @@
 package e2e
 
 import (
+	"sort"
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -19,13 +23,23 @@ var _ = Describe("delete_pod", func() {
 			})
 
 			It("deletes a real coredns pod via ZOA", func() {
-				before := coreDNSPodNames(tgt)
-				Expect(before).NotTo(BeEmpty(), "coredns pods not found (selector %q in %s)", coreDNSSelector, coreDNSNamespace)
-				victim := before[0]
+				// E2E_COREDNS_* env vars (helpers_test.go) pick the workload; list+delete
+				// go through TAs (get_resource, delete_pod). Retries tolerate rollout churn.
+				var exec map[string]interface{}
+				Eventually(func(g Gomega) {
+					names, err := deletePodTestEligiblePodNames(tgt, coreDNSNamespace, coreDNSSelector)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(names).NotTo(BeEmpty(),
+						"no eligible pods (selector %q in %s)", coreDNSSelector, coreDNSNamespace)
+					sort.Strings(names)
+					exec, err = runActionResult(tgt, "delete_pod",
+						"--namespace", coreDNSNamespace,
+						"--name", names[0],
+						"--force",
+					)
+					g.Expect(err).NotTo(HaveOccurred())
+				}, 60*time.Second, 5*time.Second).Should(Succeed())
 
-				// coredns pods are owned by a ReplicaSet, so delete_pod's
-				// ownerReferences safety check passes.
-				exec := runAction(tgt, "delete_pod", "--namespace", coreDNSNamespace, "--name", victim, "--force")
 				Expect(exec["status"]).To(Equal("succeeded"))
 				Expect(exec["action"]).To(Equal("delete_pod"), "this must be a real (non-dry-run) execution")
 				Expect(outputMap(exec)).To(HaveKeyWithValue("status", "deleted"))
@@ -47,3 +61,37 @@ var _ = Describe("delete_pod", func() {
 		})
 	}
 })
+
+// deletePodTestEligiblePodNames lists pods for the live delete_pod spec via get_resource,
+// skipping Terminating/Completed Table rows.
+func deletePodTestEligiblePodNames(tgt target, namespace, selector string) ([]string, error) {
+	args := []string{"--resource", "pods", "--namespace", namespace}
+	if strings.TrimSpace(selector) != "" {
+		args = append(args, "--selector", selector)
+	}
+	listExec, err := runActionResult(tgt, "get_resource", args...)
+	if err != nil {
+		return nil, err
+	}
+	rows, ok := listExec["output"].([]interface{})
+	if !ok {
+		return nil, nil
+	}
+	names := make([]string, 0, len(rows))
+	for _, r := range rows {
+		row, ok := r.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if status, ok := caseInsensitiveField(row, "status"); ok {
+			lower := strings.ToLower(strings.TrimSpace(status))
+			if strings.Contains(lower, "terminating") || strings.Contains(lower, "completed") {
+				continue
+			}
+		}
+		if name, ok := caseInsensitiveField(row, "name"); ok {
+			names = append(names, name)
+		}
+	}
+	return names, nil
+}

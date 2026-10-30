@@ -319,13 +319,6 @@ func firstDescribableEKSCluster(tgt target) (string, map[string]interface{}) {
 	return "", nil
 }
 
-// coreDNSPodNames lists current coredns pod names via get_resource — always
-// live state, never an assumed/cached count.
-func coreDNSPodNames(tgt target) []string {
-	exec := runAction(tgt, "get_resource", "--resource", "pods", "--namespace", coreDNSNamespace, "--selector", coreDNSSelector)
-	return podNamesFromOutput(exec["output"])
-}
-
 func podNamesFromOutput(output interface{}) []string {
 	rows, ok := output.([]interface{})
 	if !ok {
