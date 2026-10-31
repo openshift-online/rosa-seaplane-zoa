@@ -49,7 +49,7 @@ FROM ${BASE_IMAGE} AS tools
 
 ARG TARGETARCH=amd64
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION="v1.37.1"
+ARG KUBECTL_VERSION="v1.37.2"
 
 # ubi-minimal includes curl-minimal; do not install full curl (package conflict).
 WORKDIR /tools
@@ -103,7 +103,7 @@ FROM ${BASE_IMAGE} AS claude-builder
 
 ARG TARGETARCH=amd64
 # renovate: datasource=github-releases depName=anthropics/claude-code
-ARG CLAUDE_CODE_VERSION="2.1.311"
+ARG CLAUDE_CODE_VERSION="2.1.312"
 ENV CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION}"
 
 RUN microdnf install --assumeyes --nodocs tar gzip && microdnf clean all
