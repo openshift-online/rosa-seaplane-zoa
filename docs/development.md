@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Go 1.26+** — install from [go.dev/dl](https://go.dev/dl/) or via GVM
-- **golangci-lint v2.12+** — `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2`
+- **golangci-lint v2.14+** — `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0` (older releases cannot typecheck the Go 1.27 export data produced by the CI builder)
 - **Make**
 - **AWS CLI v2** — with a profile configured for your environment
 
@@ -109,6 +109,12 @@ Config: [`openshift/release` — `ci-operator/config/openshift-online/rosa-seapl
 | `test`          | `make test` + coverage artifacts                                                |
 | `verify`        | `make verify`                                                                   |
 | `on-demand-e2e` | Full e2e against an ephemeral env with this PR's images (`/test on-demand-e2e`) |
+
+`ci/Containerfile` is the build-root image for the `lint`, `test`, and `verify` jobs
+(selected in `openshift/release` through `build_root.project_image.dockerfile_path`;
+`.ci-operator.yaml` stays for jobs still configured with `build_root.from_repository`).
+It uses the same digest-pinned hardened FIPS Go builder as the production images and
+keeps `GOPATH` plus the build caches writable for arbitrary CI UIDs.
 
 ## Commit Conventions
 

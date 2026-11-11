@@ -5,6 +5,7 @@ Image: **`zoa-boundary`** (`Containerfile.boundary`). Konflux component **`rosa-
 ## Design
 
 - **Multi-stage build** — compilers and download tools stay in builder stages; **final image has no curl/wget**.
+- **Hardened FIPS Go builder** — the `zoa` binary is compiled in the digest-pinned `registry.access.redhat.com/hi/go:latest-fips-builder` image (`BUILDER_IMAGE`), the same builder used by `zoa-lambda`, `zoa-runner`, and the sibling Seaplane repositories. The final stage stays on UBI9 `ubi-minimal` (`BASE_IMAGE`) because the operator shell needs RPM installs, the `sre` user, and an interactive shell for ECS Exec.
 - **Checksum-verified downloads** — `kubectl` (`.sha256` sidecar), Claude Code (`SHASUMS256.txt`), AWS CLI v2 (version pin + post-install version match — AWS does not publish per-version SHA256 sidecars).
 - **Architecture-aware binaries** — CI builds `linux/amd64` and `linux/arm64`; the AWS CLI download maps these to its `x86_64` and `aarch64` archive names, respectively.
 - **Non-root runtime** — user `sre` (uid 1000); ECS task definition sets `user: 1000`.

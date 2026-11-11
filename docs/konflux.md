@@ -14,7 +14,7 @@ Application: `rosa-seaplane-zoa` ([Konflux UI](https://konflux-ui.apps.kflux-prd
 
 The `zoa` CLI is built into the `zoa-runner` image and released via `.github/workflows/release-cli.yml` — no separate Konflux component.
 
-Lambda and runner were registered in [konflux-release-data MR !21738](https://gitlab.cee.redhat.com/releng/konflux-release-data/-/merge_requests/21738) and renamed to `rosa-seaplane-zoa-lambda` / `rosa-seaplane-zoa-runner` under application `rosa-seaplane-zoa`. `rosa-seaplane-zoa-boundary` uses the same application, Enterprise Contract policy (`app-interface-standard`), and release admission. All three images use UBI9 bases and build for `linux/x86_64` and `linux/arm64`. Boundary uses versioned multi-architecture UBI tags rather than architecture-specific manifest digests. Boundary is not a hermetic build: the image downloads kubectl, the AWS CLI, and Claude Code at build time.
+Lambda and runner were registered in [konflux-release-data MR !21738](https://gitlab.cee.redhat.com/releng/konflux-release-data/-/merge_requests/21738) and renamed to `rosa-seaplane-zoa-lambda` / `rosa-seaplane-zoa-runner` under application `rosa-seaplane-zoa`. `rosa-seaplane-zoa-boundary` uses the same application, Enterprise Contract policy (`app-interface-standard`), and release admission. All three images build for `linux/x86_64` and `linux/arm64`. Every Go build stage uses the hardened (Project Hummingbird) FIPS Go builder `registry.access.redhat.com/hi/go:latest-fips-builder`, digest-pinned to a multi-architecture image index, as in `rosa-seaplane-kube-applier` and `rosa-seaplane-ecr-creds-sync`; `zoa-lambda` and `zoa-runner` run on the matching hardened FIPS runtime `hi/go:latest-fips` (`GODEBUG=fips140=on`). `zoa-boundary` keeps a UBI9 `ubi-minimal` base for its final image because the operator shell installs RPMs, creates the `sre` user, and needs an interactive shell for ECS Exec; it uses versioned multi-architecture UBI tags rather than architecture-specific manifest digests. Boundary is not a hermetic build: the image downloads kubectl, the AWS CLI, and Claude Code at build time.
 
 ## Pipelines
 
@@ -30,7 +30,7 @@ Konflux **Mintmaker** reads [`renovate.json`](../renovate.json) on a schedule an
 
 | What                              | How it is updated                                                                                                |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| UBI / go-toolset **base image tags** | `dockerfile` manager on `Containerfile*` (`ARG BASE_IMAGE`, `BUILDER_IMAGE`, `FROM …`)                        |
+| Hardened FIPS Go / UBI **base image pins** | `dockerfile` manager on `Containerfile*` and `ci/Containerfile` (`ARG BASE_IMAGE`, `BUILDER_IMAGE`, `FROM …`); `hi/go` references are digest pins refreshed by the digest rules |
 | **Go modules**                    | `gomod` manager                                                                                                  |
 | **Tekton** refs                   | `tekton` manager on `.tekton/`                                                                                   |
 | **kubectl** in boundary           | `custom.regex` on `Containerfile.boundary` (`KUBECTL_VERSION`)                                                   |

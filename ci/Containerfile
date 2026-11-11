@@ -1,13 +1,21 @@
 # CI build-root image for rosa-seaplane-zoa PR checks.
-# Extends the standard Go builder for CI-specific tooling needs.
+# Uses the same digest-pinned hardened (Project Hummingbird) FIPS Go builder as
+# the production Containerfiles, matching rosa-seaplane-kube-applier and
+# rosa-seaplane-ecr-creds-sync. The builder already provides Bash, Git, Make and
+# GCC (needed by `go test -race`), so no package installation is required.
 # golangci-lint is managed via hack/tools/go.mod and built by Make targets.
 
-FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.26-openshift-4.23
+FROM registry.access.redhat.com/hi/go:latest-fips-builder@sha256:e424db07a04673ec9c732981d3d97e96044cce39215f5c528d4f549e45eb1c2c
 
-RUN mkdir -p /tmp/.golangci-lint-cache /tmp/.gocache /tmp/.gomodcache && \
-    chmod -R 777 /tmp/.golangci-lint-cache /tmp/.gocache /tmp/.gomodcache
+USER root
+
+# ci-operator clones the source under /go/src and runs as an arbitrary UID, so
+# GOPATH and the caches must be writable by any user.
+RUN mkdir -p /go /tmp/.golangci-lint-cache /tmp/.gocache /tmp/.gomodcache && \
+    chmod -R 777 /go /tmp/.golangci-lint-cache /tmp/.gocache /tmp/.gomodcache
 
 ENV GOFLAGS="-mod=mod"
+ENV GOPATH=/go
 ENV GOLANGCI_LINT_CACHE=/tmp/.golangci-lint-cache
 ENV GOCACHE=/tmp/.gocache
 ENV GOMODCACHE=/tmp/.gomodcache

@@ -1,9 +1,10 @@
-FROM registry.access.redhat.com/ubi9/go-toolset:1.26.10-1794208260 AS builder
+# Hardened (Project Hummingbird) FIPS Go builder, digest-pinned to a
+# multi-architecture image index — same reference as rosa-seaplane-kube-applier
+# and rosa-seaplane-ecr-creds-sync.
+FROM registry.access.redhat.com/hi/go:latest-fips-builder@sha256:e424db07a04673ec9c732981d3d97e96044cce39215f5c528d4f549e45eb1c2c AS builder
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
-USER 0
-RUN mkdir -p /workspace && chown 1001:0 /workspace
-USER 1001
+USER root
 
 WORKDIR /workspace
 ENV GOCACHE=/workspace/.cache/go-build
@@ -12,8 +13,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
+# `make print-version` is the repository's single VERSION parser (see Makefile);
+# the hardened builder provides make and ships no awk.
 RUN git config --global --add safe.directory /workspace && \
-    ZOA_VERSION=$(grep '^VERSION ' Makefile | awk '{print $3}') && \
+    ZOA_VERSION=$(make print-version) && \
     GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
     BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
     VERSION_PKG="github.com/openshift-online/rosa-seaplane-zoa/internal/version" && \
@@ -22,7 +25,8 @@ RUN git config --global --add safe.directory /workspace && \
     -ldflags="-w -s -X ${VERSION_PKG}.Version=${ZOA_VERSION} -X ${VERSION_PKG}.GitCommit=${GIT_COMMIT} -X ${VERSION_PKG}.BuildDate=${BUILD_DATE}" \
     -o /workspace/zoa-lambda ./cmd/zoa-lambda/
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1794186349
+# Hardened FIPS runtime (GODEBUG=fips140=on), digest-pinned multi-architecture index.
+FROM registry.access.redhat.com/hi/go:latest-fips@sha256:275df00eba7680ddee0a3701af59af981a4c9a6fad41a84e0bc371c778ed21e8
 
 ARG VERSION=0.0.1
 ARG RELEASE=1
