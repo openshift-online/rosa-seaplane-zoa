@@ -1,20 +1,20 @@
 # Konflux
 
+Application: `rosa-seaplane-zoa` ([Konflux UI](https://konflux-ui.apps.kflux-prd-rh02.0fk9.p1.openshiftapps.com/ns/rosa-tenant/applications/rosa-seaplane-zoa/activity))
+
 ZOA container images build on Konflux (`rosa-tenant` / `kflux-prd-rh02`).
 
 | Component | Containerfile | Quay image |
 |-----------|---------------|------------|
-| `rosa-seaplane-zoa-lambda` | `Containerfile` | `quay.io/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-lambda` |
-| `rosa-seaplane-zoa-runner` | `Containerfile.runner` | `quay.io/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-runner` |
-| `rosa-seaplane-zoa-boundary` | `Containerfile.boundary` | `quay.io/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-boundary` |
+| [`rosa-seaplane-zoa-lambda`](https://konflux-ui.apps.kflux-prd-rh02.0fk9.p1.openshiftapps.com/ns/rosa-tenant/applications/rosa-seaplane-zoa/components/rosa-seaplane-zoa-lambda) | `Containerfile` | [`quay.io/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-lambda`](https://quay.io/repository/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-lambda) |
+| [`rosa-seaplane-zoa-runner`](https://konflux-ui.apps.kflux-prd-rh02.0fk9.p1.openshiftapps.com/ns/rosa-tenant/applications/rosa-seaplane-zoa/components/rosa-seaplane-zoa-runner) | `Containerfile.runner` | [`quay.io/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-runner`](https://quay.io/repository/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-runner) |
+| [`rosa-seaplane-zoa-boundary`](https://konflux-ui.apps.kflux-prd-rh02.0fk9.p1.openshiftapps.com/ns/rosa-tenant/applications/rosa-seaplane-zoa/components/rosa-seaplane-zoa-boundary) | `Containerfile.boundary` | [`quay.io/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-boundary`](https://quay.io/repository/redhat-user-workloads/rosa-tenant/rosa-seaplane-zoa-boundary) |
 
-Local dev builds (before Konflux or for ephemeral): `make image-boundary`, `make image-push-boundary`, or `make images-push` (pushes to `quay.io/rrp-dev-ci/zoa-boundary` by default).
-
-Application: `rosa-seaplane-zoa` ([Konflux UI](https://konflux-ui.apps.kflux-prd-rh02.0fk9.p1.openshiftapps.com/ns/rosa-tenant/applications/rosa-seaplane-zoa/activity))
+For local builds before Konflux merges: `make images-push` publishes all three images to `quay.io/rrp-dev-ci/zoa-{lambda,runner,boundary}` (`:latest` and short commit). See [development.md](development.md) for per-image targets and repo overrides; [e2e-testing.md](e2e-testing.md) for ephemeral CI image tags.
 
 The `zoa` CLI is built into the `zoa-runner` image and released via `.github/workflows/release-cli.yml` — no separate Konflux component.
 
-Lambda and runner were registered in [konflux-release-data MR !21738](https://gitlab.cee.redhat.com/releng/konflux-release-data/-/merge_requests/21738) and renamed to `rosa-seaplane-zoa-lambda` / `rosa-seaplane-zoa-runner` under application `rosa-seaplane-zoa`. `rosa-seaplane-zoa-boundary` uses the same application, Enterprise Contract policy (`app-interface-standard`), and release admission. All three images use UBI9 bases and build for `linux/x86_64` and `linux/arm64`. Boundary uses versioned multi-architecture UBI tags rather than architecture-specific manifest digests. Boundary is not a hermetic build: the image downloads kubectl, the AWS CLI, and Claude Code at build time.
+Components `rosa-seaplane-zoa-lambda`, `rosa-seaplane-zoa-runner`, and `rosa-seaplane-zoa-boundary` share the Konflux application above, Enterprise Contract policy (`app-interface-standard`), and the same ROSA release admission. All three images use UBI9 bases and build for `linux/x86_64` and `linux/arm64`. Boundary uses versioned multi-architecture UBI tags rather than architecture-specific manifest digests. Boundary is not a hermetic build: the image downloads kubectl, the AWS CLI, and Claude Code at build time.
 
 ## Pipelines
 
@@ -39,13 +39,3 @@ Konflux **Mintmaker** reads [`renovate.json`](../renovate.json) on a schedule an
 | **jq / vim / …** RPMs             | Ride along when **ubi-minimal** digest updates                                                                   |
 
 Patch, minor, and digest bumps of those boundary pins are grouped with other Containerfile updates and automerge when Prow and Konflux pass. Major bumps stay for manual review. `jq` and the other UBI packages have no separate pin.
-
-Local image builds remain `make image-boundary` / `make image-push-boundary` (default registry `quay.io/rrp-dev-ci/zoa-boundary`). Ephemeral Prow keeps using that CI image; it is separate from the Konflux production repository.
-
-## Merge order
-
-Onboard boundary in this order so the build service account and Quay repository exist before pipelines run:
-
-1. `konflux-release-data` — component `rosa-seaplane-zoa-boundary`, ImageRepository, Enterprise Contract scenario, and the rosa release-admission mapping
-2. This repo — `.tekton/zoa-boundary-pull-request.yaml` and `.tekton/zoa-boundary-push.yaml`
-3. `openshift/release` — required-if-present context `Konflux kflux-prd-rh02 / zoa-boundary-on-pull-request`
